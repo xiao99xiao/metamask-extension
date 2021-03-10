@@ -2,8 +2,8 @@ import { MethodRegistry } from 'eth-method-registry';
 import abi from 'human-standard-token-abi';
 import { ethers } from 'ethers';
 import log from 'loglevel';
+
 import { addHexPrefix } from '../../../../app/scripts/lib/util';
-import { getEtherscanNetworkPrefix } from '../../../lib/etherscan-prefix-for-network';
 import {
   TRANSACTION_CATEGORIES,
   TRANSACTION_GROUP_STATUSES,
@@ -193,15 +193,43 @@ export function getStatusKey(transaction) {
 }
 
 /**
- * Returns an external block explorer URL at which a transaction can be viewed.
- * @param {number} networkId
- * @param {string} hash
- * @param {Object} rpcPrefs
+ * Returns a title for the given transaction category.
+ *
+ * This will throw an error if the transaction category is unrecognized and no default is provided.
+ * @param {function} t - The translation function
+ * @param {TRANSACTION_CATEGORIES[keyof TRANSACTION_CATEGORIES]} transactionCategory - The transaction category constant
+ * @returns {string} The transaction category title
  */
-export function getBlockExplorerUrlForTx(networkId, hash, rpcPrefs = {}) {
-  if (rpcPrefs.blockExplorerUrl) {
-    return `${rpcPrefs.blockExplorerUrl.replace(/\/+$/u, '')}/tx/${hash}`;
+export function getTransactionCategoryTitle(t, transactionCategory) {
+  switch (transactionCategory) {
+    case TRANSACTION_CATEGORIES.TOKEN_METHOD_TRANSFER: {
+      return t('transfer');
+    }
+    case TRANSACTION_CATEGORIES.TOKEN_METHOD_TRANSFER_FROM: {
+      return t('transferFrom');
+    }
+    case TRANSACTION_CATEGORIES.TOKEN_METHOD_APPROVE: {
+      return t('approve');
+    }
+    case TRANSACTION_CATEGORIES.SENT_ETHER: {
+      return t('sentEther');
+    }
+    case TRANSACTION_CATEGORIES.CONTRACT_INTERACTION: {
+      return t('contractInteraction');
+    }
+    case TRANSACTION_CATEGORIES.DEPLOY_CONTRACT: {
+      return t('contractDeployment');
+    }
+    case TRANSACTION_CATEGORIES.SWAP: {
+      return t('swap');
+    }
+    case TRANSACTION_CATEGORIES.SWAP_APPROVAL: {
+      return t('swapApproval');
+    }
+    default: {
+      throw new Error(
+        `Unrecognized transaction category: ${transactionCategory}`,
+      );
+    }
   }
-  const prefix = getEtherscanNetworkPrefix(networkId);
-  return `https://${prefix}etherscan.io/tx/${hash}`;
 }

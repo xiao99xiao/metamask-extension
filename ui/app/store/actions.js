@@ -422,33 +422,40 @@ export function connectHardware(deviceName, page, hdPath) {
   };
 }
 
-export function unlockHardwareWalletAccount(index, deviceName, hdPath) {
+export function unlockHardwareWalletAccounts(
+  indexes,
+  deviceName,
+  hdPath,
+  hdPathDescription,
+) {
   log.debug(
     `background.unlockHardwareWalletAccount`,
-    index,
+    indexes,
     deviceName,
     hdPath,
+    hdPathDescription,
   );
-  return (dispatch) => {
+  return async (dispatch) => {
     dispatch(showLoadingIndication());
-    return new Promise((resolve, reject) => {
-      background.unlockHardwareWalletAccount(
-        index,
-        deviceName,
-        hdPath,
-        (err) => {
-          dispatch(hideLoadingIndication());
-          if (err) {
-            log.error(err);
-            dispatch(displayWarning(err.message));
-            reject(err);
-            return;
-          }
 
-          resolve();
-        },
-      );
-    });
+    for (const index of indexes) {
+      try {
+        await promisifiedBackground.unlockHardwareWalletAccount(
+          index,
+          deviceName,
+          hdPath,
+          hdPathDescription,
+        );
+      } catch (e) {
+        log.error(e);
+        dispatch(displayWarning(e.message));
+        dispatch(hideLoadingIndication());
+        throw e;
+      }
+    }
+
+    dispatch(hideLoadingIndication());
+    return undefined;
   };
 }
 
@@ -930,6 +937,7 @@ export function completedTx(id) {
       unapprovedPersonalMsgs,
       unapprovedTypedMessages,
       network,
+      provider: { chainId },
     } = state.metamask;
     const unconfirmedActions = txHelper(
       unapprovedTxs,
@@ -937,6 +945,7 @@ export function completedTx(id) {
       unapprovedPersonalMsgs,
       unapprovedTypedMessages,
       network,
+      chainId,
     );
     const otherUnconfirmedActions = unconfirmedActions.filter(
       (tx) => tx.id !== id,
@@ -1772,21 +1781,13 @@ export function hideModal(payload) {
 }
 
 export function closeCurrentNotificationWindow() {
-  return (dispatch, getState) => {
+  return (_, getState) => {
     if (
       getEnvironmentType() === ENVIRONMENT_TYPE_NOTIFICATION &&
       !hasUnconfirmedTransactions(getState())
     ) {
       global.platform.closeCurrentWindow();
-
-      dispatch(closeNotificationWindow());
     }
-  };
-}
-
-export function closeNotificationWindow() {
-  return {
-    type: actionConstants.CLOSE_NOTIFICATION_WINDOW,
   };
 }
 
@@ -2050,6 +2051,10 @@ export function setDefaultHomeActiveTabName(value) {
 
 export function setUseNativeCurrencyAsPrimaryCurrencyPreference(value) {
   return setPreference('useNativeCurrencyAsPrimaryCurrency', value);
+}
+
+export function setHideZeroBalanceTokens(value) {
+  return setPreference('hideZeroBalanceTokens', value);
 }
 
 export function setShowFiatConversionOnTestnetsPreference(value) {
@@ -2460,6 +2465,44 @@ export function removePermissionsFor(domains) {
 export function clearPermissions() {
   return () => {
     background.clearPermissions();
+  };
+}
+
+// Pending Approvals
+
+/**
+ * Resolves a pending approval and closes the current notification window if no
+ * further approvals are pending after the background state updates.
+ * @param {string} id - The pending approval id
+ * @param {any} [value] - The value required to confirm a pending approval
+ */
+export function resolvePendingApproval(id, value) {
+  return async (dispatch) => {
+    await promisifiedBackground.resolvePendingApproval(id, value);
+    // Before closing the current window, check if any additional confirmations
+    // are added as a result of this confirmation being accepted
+    const { pendingApprovals } = await forceUpdateMetamaskState(dispatch);
+    if (Object.values(pendingApprovals).length === 0) {
+      dispatch(closeCurrentNotificationWindow());
+    }
+  };
+}
+
+/**
+ * Rejects a pending approval and closes the current notification window if no
+ * further approvals are pending after the background state updates.
+ * @param {string} id - The pending approval id
+ * @param {Error} [error] - The error to throw when rejecting the approval
+ */
+export function rejectPendingApproval(id, error) {
+  return async (dispatch) => {
+    await promisifiedBackground.rejectPendingApproval(id, error);
+    // Before closing the current window, check if any additional confirmations
+    // are added as a result of this confirmation being rejected
+    const { pendingApprovals } = await forceUpdateMetamaskState(dispatch);
+    if (Object.values(pendingApprovals).length === 0) {
+      dispatch(closeCurrentNotificationWindow());
+    }
   };
 }
 
