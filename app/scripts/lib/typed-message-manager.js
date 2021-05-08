@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import assert from 'assert';
+import { strict as assert } from 'assert';
 import { ObservableStore } from '@metamask/obs-store';
 import { ethErrors } from 'eth-rpc-errors';
 import { typedSignatureHash, TYPED_MESSAGE_SCHEMA } from 'eth-sig-util';
@@ -8,7 +8,7 @@ import log from 'loglevel';
 import jsonschema from 'jsonschema';
 import { MESSAGE_TYPE } from '../../../shared/constants/app';
 import { METAMASK_CONTROLLER_EVENTS } from '../metamask-controller';
-import createId from './random-id';
+import createId from '../../../shared/modules/random-id';
 
 /**
  * Represents, and contains data about, an 'eth_signTypedData' type signature request. These are created when a
